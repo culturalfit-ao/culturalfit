@@ -47,6 +47,40 @@
   color: #a5a5a5;
   letter-spacing: 0.1em;
 }
+.gate-skip {
+  position: fixed;
+  right: 18px;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 14px 26px;
+  background: rgba(0, 0, 0, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  color: #fff;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.gate-skip:hover,
+.gate-skip:focus-visible {
+  background: rgba(0, 0, 0, 0.85);
+  border-color: #fff;
+}
+.gate-skip[hidden] {
+  display: none;
+}
 </style>
 <title>WHOOP 5.0 Angola | Monitoriza o Sono, a Recuperação e o Desempenho</title>
 <meta name="description" content="Descobre o WHOOP 5.0 em Angola. Acompanha o teu sono, recuperação e esforço físico. Disponível por 150.000 Kz, com 1 mês de subscrição incluído.">
@@ -1176,7 +1210,8 @@ details.faq-item[open] summary::after {
   <video class="gate-video" id="gateVideo" src="assets/videos/video_intro_obrigatorio.mp4" playsinline muted preload="auto"></video>
   <div class="gate-ui">
     <div class="gate-brand">WHOOP 5.0 · Angola</div>
-    <div class="gate-text">O vídeo desbloqueia o site ao terminar</div>
+    <div class="gate-text" id="gateText">O vídeo desbloqueia o site ao terminar</div>
+    <button type="button" class="gate-skip" id="gateSkip" hidden>Saltar vídeo</button>
   </div>
 </div>
 
@@ -1880,26 +1915,63 @@ details.faq-item[open] summary::after {
   // VÍDEO PORTAL OBRIGATÓRIO
   var gateVideo = document.getElementById('gateVideo');
   var gateOverlay = document.getElementById('gateOverlay');
+  var gateSkip = document.getElementById('gateSkip');
   var gateOpened = false;
+
+  function openGate() {
+    if (gateOpened || !gateOverlay) return;
+    gateOpened = true;
+    if (gateVideo) gateVideo.pause();
+    gateOverlay.classList.add('gate-open');
+    document.body.classList.remove('gate-locked');
+    setTimeout(function() { gateOverlay.style.display = 'none'; }, 800);
+  }
+
   if (gateVideo && gateOverlay) {
     gateVideo.muted = true;
-    gateVideo.play().catch(function(){});
+
+    // Se o vídeo falhar (rede fraca, formato, etc.) o site abre na mesma
+    gateVideo.addEventListener('error', function() {
+      var gateText = document.getElementById('gateText');
+      if (gateText) gateText.textContent = 'Toque em "Saltar vídeo" para entrar no site';
+      openGate();
+    });
+
     gateVideo.addEventListener('timeupdate', function() {
-      if (!gateOpened && gateVideo.currentTime >= gateVideo.duration - 0.5) {
-        gateOpened = true;
-        gateVideo.pause();
-        gateOverlay.classList.add('gate-open');
-        document.body.classList.remove('gate-locked');
-        setTimeout(function() { gateOverlay.style.display = 'none'; }, 800);
+      if (gateVideo.duration && gateVideo.currentTime >= gateVideo.duration - 0.5) {
+        openGate();
       }
     });
+    gateVideo.addEventListener('ended', openGate);
+
+    if (gateSkip) {
+      // O botão fica visível pouco depois de entrar, para o cliente poder saltar
+      setTimeout(function() { gateSkip.hidden = false; }, 1500);
+      gateSkip.addEventListener('click', function(e) {
+        e.preventDefault();
+        openGate();
+      });
+    }
+
+    gateVideo.play().catch(function(){});
+
+    // Se a falha já ocorreu antes de ligarmos os eventos, apanhala aqui
+    if (gateVideo.error) {
+      var gt = document.getElementById('gateText');
+      if (gt) gt.textContent = 'Toque em "Saltar vídeo" para entrar no site';
+      openGate();
+    }
+
+    // Segurança final: se o vídeo nunca chegar a arrancar, abre passados 8s
+    setTimeout(function() {
+      var nuncaArrancou = gateVideo.error ||
+        gateVideo.readyState < 2 ||
+        (gateVideo.paused && gateVideo.currentTime === 0);
+      if (nuncaArrancou) openGate();
+    }, 8000);
+  } else {
+    document.body.classList.remove('gate-locked');
   }
-  document.querySelectorAll('.js-wa-trigger').forEach(function(el) {
-    el.addEventListener('click', function(e) {
-      e.preventDefault();
-      openModal();
-    });
-  });
 })();
 </script>
 <section id="wbc-experience" class="wbc-modal">
@@ -2491,7 +2563,7 @@ details.faq-item[open] summary::after {
     });
   });
 })();
-</script
+</script>
 
 </body>
 </html>
